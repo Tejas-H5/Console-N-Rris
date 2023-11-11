@@ -42,20 +42,36 @@ void clearConsole() {
     );
 
     resetCursor();
-    
 }
 
 
 
 class Game {
     vector<vector<char>> screen;
+    vector<vector<char>> layout;
     int w, h;
+
+    vector<pair<int, int>> nextTetris;
+    int nextTetrisX;
+    int nextTetrisY;
+    char nextTetrisCol;
+    bool generateNewTetris = true;
+    int fps;
+    int dim;
+
+    chrono::time_point<chrono::steady_clock> t0;
+    size_t time_elapsed;
+    int gravityTimer;
+    int height = 0;
+    bool gameOver = false;
+    size_t score = 0;
+    //bool gameStart = false;
 
     void setChar(vector<vector<char>>& s, int x, int y, char c) {
         if (x < 0) return;
         if (y < 0) return;
-        if (x >= screen[0].size()) return;
-        if (y >= screen.size()) return;
+        if (x >= s[0].size()) return;
+        if (y >= s.size()) return;
 
         s[y][x] = c;
     }
@@ -63,8 +79,6 @@ class Game {
     void setChar(int x, int y, char c) {
         setChar(screen, x, y, c);
     }
-
-    vector<vector<char>> layout;
 
     bool checkSquare(int x, int y) {
         x -= 2;
@@ -75,35 +89,13 @@ class Game {
         return (layout[y][x] != ' ');
     }
 
-    vector<pair<int, int>> nextTetris;
-    int nextTetrisX; 
-    int nextTetrisY;
-    char nextTetrisCol;
-    bool generateNewTetris = true;
 
-    int fps;
-    
-    int dim;
-
-    chrono::time_point<chrono::steady_clock> t0;
-    size_t time_elapsed;
-
-    int gravityTimer;
-
-    int height = 0;
-
-    bool gameOver = false;
-
-    size_t score = 0;
-    //bool gameStart = false;
 
 public:
     int dimensions() { return dim; }
     string timeTaken() { return to_string(time_elapsed / 1000) + ":" + to_string(time_elapsed % 1000); }
     size_t finalScore() { return score; }
     int finalLevel() { return difficulty(score); }
-
-
 
     Game(int w, int h, int dim): w(w), h(h), screen(h, vector<char>(w, ' ')), fps(30), dim(dim) {
         layout = vector<vector<char>>(h - 3, vector<char>(w - 4, ' '));
@@ -157,6 +149,9 @@ public:
             }
             else if (e.wVirtualKeyCode == VK_UP) {
                 rotateTetris();
+            }
+            else if (e.wVirtualKeyCode == VK_ESCAPE) {
+                gameOver = true;
             }
         }
         else {
@@ -428,10 +423,12 @@ public:
         return pair<int, int>(x, y);
     }
 
-    //procedurally generates the next tetris (or n-ris rather(idk if thats what its called))
+    // procedurally generates the next tetromino (or polyromino, as Wikipedia calls it)
     void generateNextTetris() {
         nextTetris.clear();
 
+        // red, green, blue, yellow, orange, purple. 
+        // imagine the colours. 
         nextTetrisCol = "rgbyop"[rand() % 6];
 
         set<pair<int, int>> area;
@@ -468,21 +465,21 @@ public:
             perimiter.erase(it);
         }
         
-        //now let us find the center of mass and then reposition the tetris
-        pair<int, int> centerOfMass = p(0, 0);
+        // find the mean of the blocks. this is where we will be rotating the shape from, and is 0,0
+        pair<int, int> pivotPoint = p(0, 0);
 
         for (int i = 0; i < nextTetris.size(); i++) {
-            centerOfMass.first += nextTetris[i].first;
-            centerOfMass.second += nextTetris[i].second;
+            pivotPoint.first += nextTetris[i].first;
+            pivotPoint.second += nextTetris[i].second;
         }
 
         //the cast is important. otherwise, -1/unsinged 4 becoimes  UINT_MAX/4 unsinged division
-        centerOfMass.first /= (int) nextTetris.size();
-        centerOfMass.second /= (int) nextTetris.size();
+        pivotPoint.first /= (int) nextTetris.size();
+        pivotPoint.second /= (int) nextTetris.size();
         
         for (int i = 0; i < nextTetris.size(); i++) {
-            nextTetris[i].first -= centerOfMass.first;
-            nextTetris[i].second -= centerOfMass.second;
+            nextTetris[i].first -= pivotPoint.first;
+            nextTetris[i].second -= pivotPoint.second;
         }
         
 
@@ -623,7 +620,7 @@ int main() {
         }
     }
 
-    cout << "\nSee you next time! \n(you are now obliged to play again else a worm that was inserted into \nyour computer while you were playing will encrypt all your files)\n(jk)\n(unless...\nO_O)" << endl;
+    cout << "\nSee you next time!" << endl;
 
     SpinSleep(3000);
     SetConsoleMode(hStdin, fdwSaveOldMode);
